@@ -1,0 +1,35 @@
+{
+  "name": "watercolor-client-engine",
+  "version": "1.0.0",
+  "description": "Non-AI, 100% browser-side vibrant watercolor painting style layer for video and images. Textured artistic look with soft brushstrokes and bleeding deep reds, yellows, and creams (WebGL2).",
+  "main": "src/watercolor.js",
+  "module": "src/watercolor.js",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve .",
+    "demo": "npx serve ."
+  },
+  "keywords": [
+    "watercolor",
+    "watercolor-effect",
+    "painterly-shader",
+    "webgl2",
+    "video-filter",
+    "artistic-video",
+    "non-ai",
+    "real-time",
+    "brushstrokes",
+    "pigment-bleed",
+    "cold-press-paper"
+  ],
+  "author": "Jmaity434",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jmaity434/watercolor-client-engine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Jmaity434/watercolor-client-engine/issues"
+  },
+  "homepage": "https://github.com/Jmaity434/watercolor-client-engine#readme"
+}

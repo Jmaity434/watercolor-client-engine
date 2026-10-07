@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Watercolor Client Engine — Vibrant Watercolor Video Style (WebGL2)</title>
+  <meta name="description" content="Non-AI, 100% browser-side vibrant watercolor painting style layer for video and images. Textured artistic look with soft brushstrokes and bleeding deep reds, yellows, and creams." />
+  <style>
+    :root {
+      --bg: #0d0b0a;
+      --surface: #171412;
+      --border: #2e2620;
+      --crimson: #d9383a;
+      --gold: #e5a93b;
+      --cream: #f4ebd9;
+      --text: #ede4d8;
+      --muted: #a39585;
+      --danger: #cf4f4f;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    a { color: var(--gold); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(13, 11, 10, 0.94);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .topbar nav { display: flex; gap: 1.25rem; font-size: 0.9rem; }
+    .topbar nav a { color: var(--muted); }
+    .topbar nav a:hover { color: var(--gold); text-decoration: none; }
+    .lang-wrap { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--muted); }
+    select#lang-select {
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: 0.3rem 0.6rem; border-radius: 6px; cursor: pointer;
+    }
+
+    .wrap { max-width: 980px; margin: 0 auto; padding: 2rem 1.2rem 4rem; }
+
+    header.hero { text-align: center; margin-bottom: 2.2rem; }
+    header.hero h1 {
+      font-size: clamp(1.6rem, 4vw, 2.3rem);
+      font-weight: 700; letter-spacing: -0.01em;
+      background: linear-gradient(135deg, var(--crimson), var(--gold) 65%, var(--cream));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    header.hero .subtitle { color: var(--muted); margin-top: 0.5rem; font-size: 1.02rem; max-width: 680px; margin-left: auto; margin-right: auto; }
+
+    section { margin-bottom: 3.5rem; }
+    section h2 {
+      font-size: 1.3rem; color: var(--gold); margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;
+    }
+
+    .stage {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.2rem;
+      box-shadow: 0 16px 45px rgba(217, 56, 58, 0.08);
+    }
+    .canvas-wrap {
+      width: 100%;
+      min-height: 280px;
+      background: #080706;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    #out-canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 68vh;
+      width: auto;
+      height: auto;
+    }
+    video#hidden-video { display: none; }
+
+    .hint { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.8rem; }
+
+    .controls-panel {
+      margin-top: 1.2rem;
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    .btn-row {
+      display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center;
+    }
+    button, label.file-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.55rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.15s ease;
+    }
+    button:hover:not(:disabled), label.file-btn:hover {
+      border-color: var(--gold); background: #221d18;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.primary {
+      background: linear-gradient(135deg, var(--crimson), #b82d33);
+      border-color: transparent; color: #fff; font-weight: 600;
+    }
+    button.primary:hover:not(:disabled) { filter: brightness(1.12); }
+    input[type="file"] { display: none; }
+
+    .sliders-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 0.9rem 1.4rem;
+      padding: 1rem;
+      background: #110e0c;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    label.slider-item {
+      display: flex; flex-direction: column; gap: 0.3rem;
+      font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    .slider-header { display: flex; justify-content: space-between; }
+    .slider-val { color: var(--gold); font-weight: 600; }
+    input[type="range"] {
+      width: 100%; accent-color: var(--gold);
+      height: 4px; border-radius: 2px;
+    }
+
+    #status {
+      margin-top: 0.85rem; font-size: 0.85rem; color: var(--muted); min-height: 1.3em;
+    }
+    #status.busy { color: var(--gold); }
+    #status.error { color: var(--danger); }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.2rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.2rem;
+    }
+    .card h3 { font-size: 1rem; color: var(--gold); margin-bottom: 0.4rem; }
+    .card p { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+
+    .code-block {
+      background: #090807;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.1rem;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      color: #dfd5c4;
+      margin: 0.8rem 0;
+      white-space: pre-wrap;
+    }
+
+    footer.site-footer {
+      text-align: center; color: var(--muted); font-size: 0.82rem;
+      padding: 2rem 1rem; border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <nav>
+      <a href="#demo" id="nav-demo">Live Demo</a>
+      <a href="#pipeline" id="nav-pipeline">Pipeline</a>
+      <a href="#integrate" id="nav-integrate">Integration</a>
+      <a href="https://github.com/Jmaity434/watercolor-client-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="lang-wrap">
+      <span id="lang-label">Language:</span>
+      <select id="lang-select">
+        <option value="en">English</option>
+        <option value="bn">বাংলা</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <header class="hero">
+      <h1 id="title">Watercolor Client Engine</h1>
+      <p class="subtitle" id="subtitle">Non-AI, 100% browser-side vibrant watercolor painting style for video. Textured brushstrokes, bleeding deep reds, yellows, and warm creams in real time (WebGL2).</p>
+    </header>
+
+    <section id="demo">
+      <h2 id="demo-head">Live Watercolor Studio</h2>
+      <p class="hint" id="demo-hint">Upload any video / photo, test the animated sample scene, or open camera. Zero AI model download. 100% GPU procedural math.</p>
+
+      <div class="stage">
+        <div class="canvas-wrap">
+          <canvas id="out-canvas" width="800" height="450"></canvas>
+          <video id="hidden-video" playsinline loop muted></video>
+        </div>
+
+        <div class="controls-panel">
+          <div class="btn-row">
+            <label class="file-btn">
+              <span id="btn-upload-text">Upload Video / Photo</span>
+              <input type="file" id="media-file" accept="video/*,image/*" />
+            </label>
+            <button type="button" id="btn-sample">Sample Scene</button>
+            <button type="button" id="btn-webcam">Camera</button>
+            <button type="button" id="btn-play-pause">Play / Pause</button>
+            <button type="button" id="btn-record" class="primary">Record Video</button>
+            <button type="button" id="btn-download-img">Snapshot (PNG)</button>
+          </div>
+
+          <div class="sliders-grid">
+            <label class="slider-item">
+              <div class="slider-header">
+                <span id="lbl-bleed">Pigment Bleed</span>
+                <span class="slider-val" id="val-bleed">0.65</span>
+              </div>
+              <input type="range" id="slider-bleed" min="0" max="1" step="0.01" value="0.65" />
+            </label>
+
+            <label class="slider-item">
+              <div class="slider-header">
+                <span id="lbl-brush">Brush Softness</span>
+                <span class="slider-val" id="val-brush">0.50</span>
+              </div>
+              <input type="range" id="slider-brush" min="0" max="1" step="0.01" value="0.50" />
+            </label>
+
+            <label class="slider-item">
+              <div class="slider-header">
+                <span id="lbl-grain">Paper Granulation</span>
+                <span class="slider-val" id="val-grain">0.55</span>
+              </div>
+              <input type="range" id="slider-grain" min="0" max="1" step="0.01" value="0.55" />
+            </label>
+
+            <label class="slider-item">
+              <div class="slider-header">
+                <span id="lbl-vibrance">Pigment Vibrance</span>
+                <span class="slider-val" id="val-vibrance">1.15</span>
+              </div>
+              <input type="range" id="slider-vibrance" min="0.5" max="1.5" step="0.01" value="1.15" />
+            </label>
+
+            <label class="slider-item">
+              <div class="slider-header">
+                <span id="lbl-edge">Edge Darkening</span>
+                <span class="slider-val" id="val-edge">0.45</span>
+              </div>
+              <input type="range" id="slider-edge" min="0" max="1" step="0.01" value="0.45" />
+            </label>
+          </div>
+
+          <div id="status">Ready. Click 'Sample Scene', upload a video, or start camera.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pipeline">
+      <h2 id="pipe-head">How The Non-AI Pipeline Works</h2>
+      <div class="grid-3">
+        <div class="card">
+          <h3 id="pipe-1-t">1. Kuwahara Brushstrokes</h3>
+          <p id="pipe-1-d">Divides pixels into 4 directional lobes and gathers the sector with the lowest color variance. Removes digital noise while turning flat video into hand-painted artistic brush strokes.</p>
+        </div>
+        <div class="card">
+          <h3 id="pipe-2-t">2. Capillary Bleed & Warm Blooms</h3>
+          <p id="pipe-2-d">Simulates wet-in-wet watercolor bleeding. Deep reds, sunny cadmiums, and golden yellows seep into neighboring washes with organic capillary gradients.</p>
+        </div>
+        <div class="card">
+          <h3 id="pipe-3-t">3. Cold-Press Paper & Cream Highlights</h3>
+          <p id="pipe-3-d">Procedural cold-press watercolor paper grain pools pigment into surface troughs. Bright highlights roll off gently into creamy parchment tones rather than digital white.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="integrate">
+      <h2 id="int-head">Seamless Integration</h2>
+      <p class="hint" id="int-hint">Works with React, Next.js, Vue, vanilla HTML, or WebAR players. Zero dependencies.</p>
+      
+      <p><strong id="int-step1">Import and attach to any existing video element</strong></p>
+      <div class="code-block"><script type="module">
+  import { WatercolorEngine } from './src/watercolor.js';
+
+  const myVideo = document.getElementById('tracked-video');
+  const canvas = document.getElementById('watercolor-overlay');
+
+  const engine = new WatercolorEngine(canvas, {
+    bleed: 0.65,
+    brushSize: 0.50,
+    paperGrain: 0.55,
+    vibrance: 1.15,
+    fit: 'contain'
+  });
+
+  // Attach directly in real time to existing playing video
+  await engine.attachVideo(myVideo);
+  engine.start();
+
+  // Export video with audio preserved if needed
+  const stream = engine.captureStream(30, true);
+</script></div>
+    </section>
+  </div>
+
+  <footer class="site-footer">
+    <span>Watercolor Client Engine · Zero AI · 100% Client-Side WebGL2 · MIT License</span>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/Jmaity434/watercolor-client-engine" target="_blank" rel="noopener">GitHub Repository</a>
+  </footer>
+
+  <script type="module">
+    import { WatercolorEngine } from './src/watercolor.js';
+    import { RecordEngine } from './src/record-engine.js';
+
+    const canvas = document.getElementById('out-canvas');
+    const video = document.getElementById('hidden-video');
+    const statusEl = document.getElementById('status');
+    const langSelect = document.getElementById('lang-select');
+
+    let engine = null;
+    let recorder = null;
+    let isRecording = false;
+    let synthTimer = null;
+    let lang = 'en';
+
+    const STRINGS = {
+      en: {
+        title: 'Watercolor Client Engine',
+        subtitle: 'Non-AI, 100% browser-side vibrant watercolor painting style for video. Textured brushstrokes, bleeding deep reds, yellows, and warm creams in real time (WebGL2).',
+        ready: 'Ready. Click \'Sample Scene\', upload a video, or start camera.',
+        loading: 'Loading media…',
+        sample_loaded: 'Sample scene loaded. Adjust sliders in real time!',
+        playing: 'Rendering vibrant watercolor…',
+        paused: 'Paused.',
+        recording: 'Recording video… click button to stop and download.',
+        rec_done: 'Recording complete! Download started.',
+        snap_done: 'Snapshot downloaded.',
+        upload: 'Upload Video / Photo',
+        record_start: 'Record Video',
+        record_stop: 'Stop Recording',
+      },
+      bn: {
+        title: 'Watercolor Client Engine',
+        subtitle: 'নন-এআই, ১০০% ব্রাউজার-সাইড উজ্জ্বল ওয়াটারকালার পেইন্টিং ভিডিও স্টাইল। সফট ব্রাশস্ট্রোক, ডিপ রেড, গোল্ডেন ইয়োলো ও ক্রিমের লাইভ ওয়াটার ব্লীড (WebGL2)।',
+        ready: 'রেডি। \'Sample Scene\' চাপুন, ভিডিও আপলোড করুন বা ক্যামেরা চালু করুন।',
+        loading: 'মিডিয়া লোড হচ্ছে…',
+        sample_loaded: 'স্যাম্পল সিন লোড হয়েছে। স্লাইডার দিয়ে রিয়েল-টাইমে অ্যাডজাস্ট করুন!',
+        playing: 'উজ্জ্বল ওয়াটারকালার রেন্ডার হচ্ছে…',
+        paused: 'পজ করা হয়েছে।',
+        recording: 'ভিডিও রেকর্ড হচ্ছে… শেষ করতে বাটনে চাপুন।',
+        rec_done: 'রেকর্ডিং সম্পন্ন! ডাউনলোড শুরু হয়েছে।',
+        snap_done: 'স্ন্যাপশট ডাউনলোড হয়েছে।',
+        upload: 'ভিডিও / ছবি আপলোড',
+        record_start: 'রেকর্ড শুরু',
+        record_stop: 'রেকর্ডিং শেষ',
+      }
+    };
+
+    function setStatus(msg, type = 'normal') {
+      statusEl.textContent = msg;
+      statusEl.className = type;
+    }
+
+    function init() {
+      engine = new WatercolorEngine(canvas, {
+        bleed: 0.65,
+        brushSize: 0.50,
+        paperGrain: 0.55,
+        vibrance: 1.15,
+        edgeDarken: 0.45,
+        fit: 'contain'
+      });
+      recorder = new RecordEngine(canvas);
+      setStatus(STRINGS[lang].ready);
+
+      // Auto start with sample scene so the user is immediately wowed
+      loadSampleScene();
+    }
+
+    function stopSynthetic() {
+      if (synthTimer) {
+        clearInterval(synthTimer);
+        synthTimer = null;
+      }
+    }
+
+    // Creates an animated sample scene with deep reds, warm yellows, rolling hills, and sunset
+    function loadSampleScene() {
+      stopSynthetic();
+      const off = document.createElement('canvas');
+      off.width = 960;
+      off.height = 540;
+      const ctx = off.getContext('2d');
+      let frame = 0;
+
+      function renderScene() {
+        frame++;
+        const t = frame * 0.025;
+
+        // Sunset sky with deep crimson red, amber yellow, and cream
+        const sky = ctx.createLinearGradient(0, 0, 0, 360);
+        sky.addColorStop(0, '#8e1b29');   // Deep crimson red
+        sky.addColorStop(0.35, '#d94726'); // Vibrant vermillion
+        sky.addColorStop(0.70, '#f2a922'); // Warm golden yellow
+        sky.addColorStop(1, '#fcedc7');    // Soft cream
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, 960, 540);
+
+        // Radiant sun glowing
+        const sunPulse = Math.sin(t * 1.5) * 5;
+        ctx.fillStyle = '#fff9e6';
+        ctx.beginPath();
+        ctx.arc(720, 160, 52 + sunPulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Fluffy clouds moving gently
+        function drawPuff(cx, cy, s) {
+          ctx.fillStyle = 'rgba(255, 248, 235, 0.92)';
+          ctx.beginPath();
+          ctx.arc(cx, cy, 32 * s, 0, Math.PI * 2);
+          ctx.arc(cx + 30 * s, cy - 10 * s, 38 * s, 0, Math.PI * 2);
+          ctx.arc(cx + 64 * s, cy, 30 * s, 0, Math.PI * 2);
+          ctx.arc(cx + 34 * s, cy + 12 * s, 26 * s, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        const cloudX = ((frame * 0.6) % 1100) - 150;
+        drawPuff(cloudX, 130, 1.3);
+        drawPuff((cloudX + 450) % 1100 - 150, 90, 1.0);
+
+        // Distant violet-red mountains
+        ctx.fillStyle = '#6e2b3e';
+        ctx.beginPath();
+        ctx.moveTo(0, 360);
+        ctx.lineTo(240, 230);
+        ctx.lineTo(460, 340);
+        ctx.lineTo(690, 200);
+        ctx.lineTo(960, 330);
+        ctx.lineTo(960, 540);
+        ctx.lineTo(0, 540);
+        ctx.closePath();
+        ctx.fill();
+
+        // Golden ochre foreground hills
+        ctx.fillStyle = '#b87c24';
+        ctx.beginPath();
+        ctx.arc(260, 520, 320, Math.PI, 0);
+        ctx.fill();
+
+        // Deep warm red-brown hill
+        ctx.fillStyle = '#8a2b25';
+        ctx.beginPath();
+        ctx.arc(760, 530, 330, Math.PI, 0);
+        ctx.fill();
+
+        // Text branding in scene
+        ctx.fillStyle = '#f8eedb';
+        ctx.font = 'bold 32px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('WATERCOLOR ENGINE', 480, 50);
+      }
+
+      synthTimer = setInterval(renderScene, 1000 / 30);
+      renderScene();
+
+      const stream = off.captureStream(30);
+      video.srcObject = stream;
+      video.play().catch(() => {});
+      engine.attachVideo(video).then(() => {
+        engine.start();
+        setStatus(STRINGS[lang].sample_loaded);
+      });
+    }
+
+    // Media file upload
+    document.getElementById('media-file').addEventListener('change', async (e) => {
+      stopSynthetic();
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      setStatus(STRINGS[lang].loading, 'busy');
+      try {
+        await engine.loadSource(file);
+        engine.start();
+        setStatus(STRINGS[lang].playing);
+      } catch (err) {
+        setStatus('Failed to load media: ' + err.message, 'error');
+      }
+    });
+
+    // Sample button
+    document.getElementById('btn-sample').addEventListener('click', () => {
+      loadSampleScene();
+    });
+
+    // Webcam
+    document.getElementById('btn-webcam').addEventListener('click', async () => {
+      stopSynthetic();
+      setStatus('Accessing camera…', 'busy');
+      try {
+        await engine.startWebcam();
+        engine.start();
+        setStatus(STRINGS[lang].playing);
+      } catch (err) {
+        setStatus('Camera error: ' + err.message, 'error');
+      }
+    });
+
+    // Play / Pause
+    document.getElementById('btn-play-pause').addEventListener('click', () => {
+      if (!engine.activeSource) return;
+      if (engine.isProcessing) {
+        engine.stop();
+        if (engine.activeSource instanceof HTMLVideoElement) engine.activeSource.pause();
+        setStatus(STRINGS[lang].paused);
+      } else {
+        if (engine.activeSource instanceof HTMLVideoElement) engine.activeSource.play().catch(() => {});
+        engine.start();
+        setStatus(STRINGS[lang].playing);
+      }
+    });
+
+    // Live Sliders
+    const sliders = [
+      { id: 'bleed', opt: 'bleed' },
+      { id: 'brush', opt: 'brushSize' },
+      { id: 'grain', opt: 'paperGrain' },
+      { id: 'vibrance', opt: 'vibrance' },
+      { id: 'edge', opt: 'edgeDarken' },
+    ];
+
+    sliders.forEach(({ id, opt }) => {
+      const input = document.getElementById(`slider-${id}`);
+      const valDisplay = document.getElementById(`val-${id}`);
+      input.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        valDisplay.textContent = val.toFixed(2);
+        engine.setOptions({ [opt]: val });
+      });
+    });
+
+    // Record Video
+    const btnRecord = document.getElementById('btn-record');
+    btnRecord.addEventListener('click', async () => {
+      if (!recorder) return;
+      if (!isRecording) {
+        recorder.start();
+        isRecording = true;
+        btnRecord.textContent = STRINGS[lang].record_stop;
+        setStatus(STRINGS[lang].recording, 'busy');
+      } else {
+        setStatus('Processing video…', 'busy');
+        await recorder.stopAndDownload('watercolor-art');
+        isRecording = false;
+        btnRecord.textContent = STRINGS[lang].record_start;
+        setStatus(STRINGS[lang].rec_done);
+      }
+    });
+
+    // Snapshot PNG
+    document.getElementById('btn-download-img').addEventListener('click', async () => {
+      const blob = await engine.toBlob('image/png', 0.95);
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `watercolor-${Date.now()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus(STRINGS[lang].snap_done);
+    });
+
+    // Language Toggle
+    langSelect.addEventListener('change', () => {
+      lang = langSelect.value;
+      const s = STRINGS[lang];
+      document.getElementById('title').textContent = s.title;
+      document.getElementById('subtitle').textContent = s.subtitle;
+      document.getElementById('btn-upload-text').textContent = s.upload;
+      btnRecord.textContent = isRecording ? s.record_stop : s.record_start;
+      setStatus(s.ready);
+    });
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
